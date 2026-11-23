@@ -89,8 +89,8 @@ Extended the classic `emp` and `dept` relational schema with an `img` column map
 
 # Spark, MySQL & Cassandra
 /usr/local/spark/sbin/start-all.sh
-sudo service mysql start
-sudo service cassandra start
+sudo com.example.pro3.service mysql start
+sudo com.example.pro3.service cassandra start
 ```
 
 ### 2. Configure Application Properties
@@ -120,6 +120,6 @@ mvn clean spring-boot:run
 - [x] MySQL `scott` schema migration (`img` mapping) & HDFS avatar verification
 - [x] Spring Boot 2.7.18 + Spark-Cassandra Maven dependency isolation
 - [ ] JPA Entities (`Emp`, `Dept`) with manager self-join & DTO layer
-- [ ] HDFS image streaming service & Spark-Cassandra total expense service
+- [ ] HDFS image streaming com.example.pro3.service & Spark-Cassandra total expense com.example.pro3.service
 - [ ] POS Simulator Kafka producer & Spark Structured Streaming consumer
 - [ ] Web dashboard UI (`Image, Name, Manager, Department, Salary, Commission, Total Expense`)
