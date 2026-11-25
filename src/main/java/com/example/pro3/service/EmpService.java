@@ -16,7 +16,6 @@ public class EmpService {
     private final EmpRepository empRepository;
     private final DeptRepository deptRepository;
 
-    @Cacheable("emps")
     public List<Emp> getAllEmps() {
         return empRepository.findAll();
     }
@@ -31,7 +30,6 @@ public class EmpService {
         return empRepository.findById(empno).orElse(null);
     }
 
-    @Cacheable("depts")
     public List<Dept> getAllDepts() {
         return deptRepository.findAll();
     }
