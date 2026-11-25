@@ -13,7 +13,11 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
@@ -38,12 +42,22 @@ public class EmpController {
         if (emp == null) {
             return "redirect:/";
         }
+
         List<Expense> expenses = expenseService.getExpensesByUserId(id);
         double totalPayment = expenses.stream().mapToDouble(Expense::getPayment).sum();
+
+        Map<String, Double> categoryTotals = expenses.stream()
+                .collect(Collectors.groupingBy(
+                        e -> e.getType() != null ? e.getType() : "Other",
+                        TreeMap::new,
+                        Collectors.summingDouble(Expense::getPayment)
+                ));
 
         model.addAttribute("emp", emp);
         model.addAttribute("expenses", expenses);
         model.addAttribute("totalPayment", totalPayment);
+        model.addAttribute("categoryLabels", new ArrayList<>(categoryTotals.keySet()));
+        model.addAttribute("categoryValues", new ArrayList<>(categoryTotals.values()));
         return "detail";
     }
 
