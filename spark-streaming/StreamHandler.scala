@@ -27,13 +27,29 @@ object StreamHandler {
   val CassandraKeyspace = "test"
   val CassandraTable    = "expenses"
 
-  // Called once per micro-batch: append the batch to Cassandra.
+  // Called once per micro-batch: append the batch to Cassandra and print what was written.
   def writeToCassandra(batchDF: DataFrame, batchId: Long): Unit = {
-    println(s"Writing batch $batchId to Cassandra")
-    batchDF.write
-      .cassandraFormat(CassandraTable, CassandraKeyspace)
-      .mode("append")
-      .save()
+    batchDF.persist()   // the batch is used twice (write + print), compute it once
+
+    val rows = batchDF.select("user_id", "date_time").collect()
+
+    if (rows.nonEmpty) {
+      println(s"Writing batch $batchId to Cassandra")
+
+      batchDF.write
+        .cassandraFormat(CassandraTable, CassandraKeyspace)
+        .mode("append")
+        .save()
+
+      // Printed after save(), so every line is a record that is already in Cassandra.
+      rows.foreach { r =>
+        // "2025-11-19T12:48:05.030470"  ->  "2025-11-19 12:48:05"
+        val time = r.getString(1).replace("T", " ").take(19)
+        println(s"   -> user_id = ${r.getInt(0)}   time = $time")
+      }
+    }
+
+    batchDF.unpersist()
   }
 
   def main(args: Array[String]): Unit = {
