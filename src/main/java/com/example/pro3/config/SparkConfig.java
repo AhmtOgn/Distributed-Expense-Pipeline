@@ -18,6 +18,10 @@ public class SparkConfig {
                 .master("local[*]")
                 .config("spark.cassandra.connection.host", cassandraHost)
                 .config("spark.ui.enabled", "false")
+                // One employee has only a few hundred rows. The default of 200 shuffle
+                // partitions makes every orderBy/groupBy start 200 tasks and slows each
+                // page refresh by seconds. One partition is enough for this data size.
+                .config("spark.sql.shuffle.partitions", "1")
                 .getOrCreate();
     }
 }

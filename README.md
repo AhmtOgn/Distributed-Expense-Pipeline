@@ -26,7 +26,8 @@ The system is decoupled into two primary architectural layers: a **Streaming & A
 ### Architectural Highlights
 * **Topic-Based Partitioning (Kafka):** Expense streams are routed dynamically to department-specific Kafka topics (`accounting`, `research`, `sales`, `operations`).
 * **Wide-Column Storage Optimization (Cassandra):** The `test.expenses` table is partitioned by `user_id` and clustered by `date_time ASC`, enabling $O(1)$ partition lookups when querying historical expenses for a specific employee.
-* **Distributed Aggregation (Spark):** Instead of querying Cassandra directly from the web layer, Spring Boot delegates `SUM(payment)` aggregations to Apache Spark via the DataStax Spark-Cassandra Connector.
+* **Distributed Aggregation (Spark):** The web layer never queries Cassandra directly. `ExpenseService` asks Spark to fetch and filter one employee's expenses from Cassandra (via the DataStax Spark-Cassandra Connector) and to calculate the total (`SUM(payment)`) and per-category totals (`GROUP BY type`). The controller only receives the finished `ExpenseReport`.
+* **Immediate Ingestion (Spark Streaming):** `spark-streaming/StreamHandler.scala` reads the 4 Kafka topics and appends every record to Cassandra as soon as it arrives (no fixed 5-second trigger).
 * **Hybrid Storage Serving (MySQL + HDFS):** Structured employee hierarchies (`SELF JOIN` for manager resolution) and department metadata reside in MySQL, while employee profile images are streamed directly from Hadoop HDFS.
 
 ---
@@ -89,8 +90,8 @@ Extended the classic `emp` and `dept` relational schema with an `img` column map
 
 # Spark, MySQL & Cassandra
 /usr/local/spark/sbin/start-all.sh
-sudo com.example.pro3.service mysql start
-sudo com.example.pro3.service cassandra start
+sudo service mysql start
+sudo service cassandra start
 ```
 
 ### 2. Configure Application Properties
@@ -107,10 +108,36 @@ hdfs.uri=hdfs://localhost:9000
 spark.cassandra.connection.host=127.0.0.1
 ```
 
-### 3. Build & Run
+### 3. Run the Kafka -> Spark -> Cassandra stream
+Start the POS server, then open `spark-shell` (on the hadoop account) with the Kafka and Cassandra packages:
+
+```bash
+spark-shell --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,com.datastax.spark:spark-cassandra-connector_2.12:3.5.1 \
+  --conf spark.cassandra.connection.host=127.0.0.1
+```
+
+Inside the shell:
+
+```scala
+:paste spark-streaming/StreamHandler.scala
+StreamHandler.main(Array())
+```
+
+Every POS record is now written to `test.expenses` right away. Check it with `cqlsh`:
+
+```sql
+SELECT COUNT(*) FROM test.expenses WHERE user_id = 7788;
+```
+
+> The connector version must match the Spark version of `spark-shell`: `3.5.x` for Spark 3.5, `3.4.x` for Spark 3.4.
+
+### 4. Build & Run the web app
 ```bash
 mvn clean spring-boot:run
 ```
+
+Open `http://localhost:8090/`, pick an employee, and press **Refresh** to see new expenses.
+The first page load after start-up is slower while Spark warms up.
 
 ---
 
@@ -119,7 +146,7 @@ mvn clean spring-boot:run
 - [x] Cassandra keyspace & wide-column schema setup via Spark SQL Catalog
 - [x] MySQL `scott` schema migration (`img` mapping) & HDFS avatar verification
 - [x] Spring Boot 2.7.18 + Spark-Cassandra Maven dependency isolation
-- [ ] JPA Entities (`Emp`, `Dept`) with manager self-join & DTO layer
-- [ ] HDFS image streaming com.example.pro3.service & Spark-Cassandra total expense com.example.pro3.service
-- [ ] POS Simulator Kafka producer & Spark Structured Streaming consumer
-- [ ] Web dashboard UI (`Image, Name, Manager, Department, Salary, Commission, Total Expense`)
+- [x] JPA Entities (`Emp`, `Dept`) with manager name lookup
+- [x] HDFS image streaming service & Spark-Cassandra total expense service (all calculations in Spark)
+- [x] Spark Structured Streaming consumer: Kafka (4 topics) -> Cassandra, every record written immediately
+- [x] Web dashboard UI (`Image, Name, Manager, Department, Salary, Commission, Total Expense`)

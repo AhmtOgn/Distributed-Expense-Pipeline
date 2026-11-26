@@ -1,7 +1,7 @@
 package com.example.pro3.controller;
 
 import com.example.pro3.model.Emp;
-import com.example.pro3.model.Expense;
+import com.example.pro3.model.ExpenseReport;
 import com.example.pro3.service.EmpService;
 import com.example.pro3.service.ExpenseService;
 import com.example.pro3.service.HdfsService;
@@ -15,9 +15,6 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
@@ -43,21 +40,24 @@ public class EmpController {
             return "redirect:/";
         }
 
-        List<Expense> expenses = expenseService.getExpensesByUserId(id);
-        double totalPayment = expenses.stream().mapToDouble(Expense::getPayment).sum();
+        // Manager name comes from MySQL (emp.mgr -> emp.ename)
+        String managerName = "-";
+        if (emp.getMgr() != null) {
+            Emp manager = empService.getEmpById(emp.getMgr());
+            if (manager != null) {
+                managerName = manager.getEname();
+            }
+        }
 
-        Map<String, Double> categoryTotals = expenses.stream()
-                .collect(Collectors.groupingBy(
-                        e -> e.getType() != null ? e.getType() : "Other",
-                        TreeMap::new,
-                        Collectors.summingDouble(Expense::getPayment)
-                ));
+        // Expenses, total and per-category totals are all calculated by Spark
+        ExpenseReport report = expenseService.getReport(id);
 
         model.addAttribute("emp", emp);
-        model.addAttribute("expenses", expenses);
-        model.addAttribute("totalPayment", totalPayment);
-        model.addAttribute("categoryLabels", new ArrayList<>(categoryTotals.keySet()));
-        model.addAttribute("categoryValues", new ArrayList<>(categoryTotals.values()));
+        model.addAttribute("managerName", managerName);
+        model.addAttribute("expenses", report.getExpenses());
+        model.addAttribute("totalPayment", report.getTotal());
+        model.addAttribute("categoryLabels", new ArrayList<>(report.getCategoryTotals().keySet()));
+        model.addAttribute("categoryValues", new ArrayList<>(report.getCategoryTotals().values()));
         return "detail";
     }
 

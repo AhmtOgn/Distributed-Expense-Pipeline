@@ -25,7 +25,9 @@
                         <p class="mb-0 text-muted small">
                             <span th:text="${emp.job}"></span> &bull;
                             <span th:text="${emp.dept != null ? emp.dept.dname + ' (' + emp.dept.loc + ')' : '-'}"></span><br>
-                            Salary: <strong th:text="'$' + ${emp.sal}"></strong>
+                            Manager: <strong th:text="${managerName}"></strong><br>
+                            Salary: <strong th:text="'$' + ${emp.sal}"></strong> &bull;
+                            Commission: <strong th:text="${emp.comm != null ? '$' + emp.comm : '-'}"></strong>
                         </p>
                     </div>
                 </div>
